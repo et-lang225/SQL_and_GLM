@@ -1,0 +1,151 @@
+movie_temp <- tempfile(fileext = ".csv")
+download.file("https://drive.google.com/uc?export=download&id=1uo6ixKfZHxwu1egSpq8jB9RFlDHGGOWT",
+              movie_temp)
+Movie_Revenue <- read.csv(movie_temp)
+
+fran_temp <- tempfile(fileext = ".csv")
+download.file("https://drive.google.com/uc?export=download&id=1UTNbUkAKdSw6OPT2AGstS0yw1xKxLFKq",
+              fran_temp)
+Ref_Franchise <- read.csv(fran_temp)
+
+gen_temp <- tempfile(fileext = ".csv")
+download.file("https://drive.google.com/uc?export=download&id=1kTAF4MKMvMIATgrQb5xgyl_W_mMUBI6t",
+              gen_temp)
+Ref_Genre <- read.csv(gen_temp)
+
+dir_temp <- tempfile(fileext = ".csv")
+download.file("https://drive.google.com/uc?export=download&id=1bBUq0DYkzQ3A5rzfZGjHCw-4TFcCctoB",
+              dir_temp)
+Ref_Director <- read.csv(dir_temp)
+
+cast_temp <- tempfile(fileext = ".csv")
+download.file("https://drive.google.com/uc?export=download&id=1ZVyCGz7uZOWYuqKX2oNzO2LIrTook6bL",
+              cast_temp)
+Ref_Cast <- read.csv(cast_temp)
+
+library(lubridate)
+Movie_Revenue$ReleaseDate <- mdy(Movie_Revenue$ReleaseDate)
+
+colnames(Movie_Revenue)[colnames(Movie_Revenue)=="Lifetime.Gross"] <- "Lifetime_Gross"
+
+library(RSQLite)
+conn <- dbConnect(RSQLite::SQLite(), "Movie.db")
+dbWriteTable(conn, "Movie_Revenue", Movie_Revenue, overwrite=TRUE)
+dbListTables(conn)
+dbWriteTable(conn, "Ref_Franchise", Ref_Franchise, overwrite=TRUE)
+dbListTables(conn)
+dbWriteTable(conn, "Ref_Genre", Ref_Genre, overwrite=TRUE)
+dbListTables(conn)
+dbWriteTable(conn, "Ref_Director", Ref_Director, overwrite=TRUE)
+dbListTables(conn)
+dbWriteTable(conn, "Ref_Cast", Ref_Cast, overwrite=TRUE)
+dbListTables(conn)
+
+query <- "
+SELECT Movie_Revenue.MovieID,
+Ref_Franchise.FranchiseId,
+Movie_Revenue.Title,
+Movie_Revenue.Lifetime_Gross,
+Movie_Revenue.Year,
+Movie_Revenue.Rating,
+Movie_Revenue.Runtime,
+Movie_Revenue.Budget,
+Ref_Franchise.FranchiseName
+FROM Movie_Revenue
+LEFT JOIN Ref_Franchise ON (Movie_Revenue.FranchiseID=Ref_Franchise.FranchiseId)
+"
+Fran_data <- dbGetQuery(conn, query)
+
+library(nlstools)
+library(investr)
+library(ggplot2)
+library(pROC)
+library(AICcmodavg)
+library(glmnet)
+library(dplyr)
+library(MASS)
+
+ggplot(data=Fran_data, aes(Lifetime_Gross))+geom_density()+theme_bw()
+# the distribution is skewed right, which indicates the need for a poisson or negative binomial model
+# an assumption for poisson is the mean equaling the variance, which is a simplified way to express an assumption of equidispersion
+# we will have to test for overdispersion in order to determine whether a poisson is an appropriate model
+
+# attributes: 
+# Budget (main interest), 
+# Runtime (to account for moviegoers who prefer shorter movies), 
+# Year (to account for inflation and interested moviegoers through time),
+# FranchiseName (to discover the differences in revenue between franchises)
+# and Rating (to account for accessibility)
+catx <- model.matrix( ~ .-1, Fran_data[,c('FranchiseName', 'Rating')])
+scaled_data <- scale(Fran_data[,c('Budget','Runtime','Year')])
+scaled_data <- cbind(as.data.frame(scaled_data), as.data.frame(catx))
+set.seed(123)
+CV_fran <- cv.glmnet(x=as.matrix(scaled_data), y=Fran_data$Lifetime_Gross, family=poisson(),
+                     alpha=1)
+deviance <- min(CV_fran$cvm)
+df <- length(Fran_data$Lifetime_Gross)-ncol(scaled_data)
+p <- 1-pchisq(deviance,df)
+if (p <= 0.05) {
+  print("No evidence of overdisperion")
+} else {
+  print("Potential evidence of overdispersion")
+}
+# we used a chi-squared test to determine if overdispersion occurred
+# if there was overdispersion we would switch to a negative binomial model but it did not
+
+plot(CV_fran)
+coef(CV_fran)
+coef(CV_fran, s="lambda.min")
+# Cross validation indicates the lowest deviance with 4 attributes, 
+# but that was with categorical variables expressed as dummy variables so really 3
+# those three were Budget, Runtime, and Franchise
+# The recommended model with lambda yielding the least attributes within 1 standard error of the lowest deviance only included Budget and Runtime
+# We will complete and visualize both models
+
+rec_fran_model <- glm(Lifetime_Gross ~ Budget+Runtime, data=Fran_data, family = poisson())
+
+SS <- sum((Fran_data$Lifetime_Gross-rec_fran_model$residuals)^2)
+stdev <- sqrt(SS/length(Fran_data$Lifetime_Gross))
+CI <- stdev*1.96
+
+Runtime_mean <- mean(Fran_data$Runtime)
+
+Budget_Temp <- expand.grid(Budget = seq(min(Fran_data$Budget), max(Fran_data$Budget), by=0.1e+08), Runtime=Runtime_mean)
+Revenue_fit <- predict(rec_fran_model, Budget_Temp, se.fit=TRUE, type = 'response')
+Revenue_fit <- as.data.frame(Revenue_fit)
+Revenue_fit <- cbind(Budget_Temp, Revenue_fit)
+Revenue_fit <- transform(Revenue_fit, lower=fit-CI, upper=fit+CI)
+
+ggplot()+
+  theme_light()+
+  geom_point(data=Fran_data, aes(Budget/1e+06,Lifetime_Gross/1e+06), shape=21, size=3)+ 
+  geom_line(data=Revenue_fit, aes(Budget/1e+06,fit/1e+06), linewidth=1.5)+
+  geom_line(data=Revenue_fit, aes(Budget/1e+06,upper/1e+06), linewidth=1.5, linetype=2)+
+  geom_line(data=Revenue_fit, aes(Budget/1e+06,lower/1e+06), linewidth=1.5, linetype=2)+
+  labs(x="Budget (millions of dollars)", y="Revenue (millions of dollars)")+
+  ylim(0, max(Revenue_fit$upper)/1e+06)
+# the lower confidence limit was negative, which is not possible for Revenue, so the y lower limit was set to 0
+
+full_fran_model <- glm(Lifetime_Gross ~ Budget+Runtime+FranchiseName, data=Fran_data, family = poisson())
+
+SS <- sum((Fran_data$Lifetime_Gross-full_fran_model$residuals)^2)
+stdev <- sqrt(SS/length(Fran_data$Lifetime_Gross))
+CI <- stdev*1.96
+
+Runtime_mean <- mean(Fran_data$Runtime)
+
+Budget_Temp <- expand.grid(Budget = seq(min(Fran_data$Budget), max(Fran_data$Budget), by=0.1e+08), Runtime=Runtime_mean, FranchiseName=unique(Fran_data$FranchiseName))
+Revenue_fit <- predict(full_fran_model, Budget_Temp, se.fit=TRUE, type = 'response')
+Revenue_fit <- as.data.frame(Revenue_fit)
+Revenue_fit <- cbind(Budget_Temp, Revenue_fit)
+Revenue_fit <- transform(Revenue_fit, lower=fit-CI, upper=fit+CI)
+
+ggplot()+
+  theme_light()+theme(legend.position = c(0.15,0.85), legend.background = element_rect(fill = alpha('white', 0.5)))+
+  geom_point(data=Fran_data, aes(Budget/1e+06,Lifetime_Gross/1e+06, color=FranchiseName), shape=21, size=3)+ 
+  geom_line(data=Revenue_fit, aes(Budget/1e+06,fit/1e+06, color=FranchiseName), linewidth=1.5)+
+  scale_color_manual(values = c("Star Wars"="black", "Jurassic Park"="green4", "Wizarding World"="brown4", "Middle Earth"="goldenrod1", "MCU"="red2"), 
+                     breaks = c("Star Wars", "Jurassic Park", "Wizarding World", "Middle Earth", "MCU"))+
+  labs(x="Budget (millions of dollars)", y="Revenue (millions of dollars)")
+# fascinating results with Jurassic Park claiming the top mean revenue within a given budget
+# However, the MCU claims the largest individual revenue data-point
