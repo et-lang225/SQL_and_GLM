@@ -1,0 +1,38 @@
+import pandas as pd
+Movie_Revenue = pd.read_csv("https://drive.google.com/uc?export=download&id=1uo6ixKfZHxwu1egSpq8jB9RFlDHGGOWT")
+Ref_Franchise = pd.read_csv("https://drive.google.com/uc?export=download&id=1UTNbUkAKdSw6OPT2AGstS0yw1xKxLFKq")
+Ref_Genre = pd.read_csv("https://drive.google.com/uc?export=download&id=1kTAF4MKMvMIATgrQb5xgyl_W_mMUBI6t")
+Ref_Director = pd.read_csv("https://drive.google.com/uc?export=download&id=1bBUq0DYkzQ3A5rzfZGjHCw-4TFcCctoB")
+Ref_Cast = pd.read_csv("https://drive.google.com/uc?export=download&id=1ZVyCGz7uZOWYuqKX2oNzO2LIrTook6bL")
+
+Movie_Revenue['ReleaseDate'] = pd.to_datetime(Movie_Revenue['ReleaseDate'], format='%m/%d/%Y')
+Movie_Revenue = Movie_Revenue.rename(columns={'Lifetime Gross': 'Lifetime_Gross'})
+
+import sqlite3 as db
+conn = db.connect("Movie.db")
+Movie_Revenue.to_sql('Movie_Revenue', conn, if_exists='replace', index=False)
+Ref_Franchise.to_sql('Ref_Franchise', conn, if_exists='replace', index=False)
+Ref_Genre.to_sql('Ref_Genre', conn, if_exists='replace', index=False)
+Ref_Director.to_sql('Ref_Director', conn, if_exists='replace', index=False)
+Ref_Cast.to_sql('Ref_Cast', conn, if_exists='replace', index=False)
+
+
+query = '''
+SELECT Movie_Revenue.MovieID,
+Ref_Franchise.FranchiseId,
+Movie_Revenue.Title,
+Movie_Revenue.Lifetime_Gross,
+Movie_Revenue.Year,
+Movie_Revenue.Rating,
+Movie_Revenue.Runtime,
+Movie_Revenue.Budget,
+Ref_Franchise.FranchiseName
+FROM Movie_Revenue
+LEFT JOIN Ref_Franchise ON (Movie_Revenue.FranchiseID=Ref_Franchise.FranchiseId)
+'''
+Fran_data = pd.read_sql_query(query, conn)
+
+conn.close()
+
+import statsmodels.api as sm
+
