@@ -39,3 +39,6 @@ from sklearn import model_selection as ms
 X = Fran_data.drop('Lifetime_Gross', axis=1)
 y = Fran_data[['Lifetime_Gross']]
 X_train, X_test, y_train, y_test = ms.train_test_split(X, y, test_size=0.1, random_state=123, stratify=X['FranchiseName'])
+k = len(X_train)
+lasso_cv = LassoCV(cv=k)
+lasso_cv.fit(X_train, y_train)
