@@ -98,5 +98,5 @@ RSS = sum((y_test-y_hat)**2)
 R_sq = 1 - (RSS/TSS)
 1-((1-R_sq)*(len(X_test)-1)/(len(X_test)-5-1))
 # the adjusted coefficient of determination not estimatable because the RSS is greater than the TSS
-# bascially the sample size for this analysis is far too low
+# bascially the sample size for this analysis is too low
 
