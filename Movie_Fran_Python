@@ -41,6 +41,7 @@ X_sub = Fran_data[['Year', 'Runtime','Budget']]
 scaler = StandardScaler()
 X = scaler.fit_transform(X_sub)
 X = pd.DataFrame(X, columns=X_sub.columns)
+####### This is out of order, need to assign the train and test dataframes then construct the dummy columns and standardize the data so that we can stratify the subsampling by FranchiseName ########
 X_dummies = pd.get_dummies(Fran_data[['Rating', 'FranchiseName']])
 X = X.join(X_dummies)
 y = Fran_data[['Lifetime_Gross']]
