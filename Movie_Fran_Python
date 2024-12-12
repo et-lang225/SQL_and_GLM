@@ -39,9 +39,17 @@ from sklearn.preprocessing import StandardScaler
 from sklearn import linear_model as lm
 from sklearn import model_selection as ms
 
-X = Fran_data.drop('Lifetime_Gross', axis=1)
+X_test = Fran_data.groupby('FranchiseName').sample(n=1, random_state=123)
+print(len(X_test))
+X_train = Fran_data[~Fran_data.index.isin(X_test.index)]
+print(len(X_train))
 y = Fran_data['Lifetime_Gross'].to_numpy()
-X_train, X_test, y_train, y_test = ms.train_test_split(X, y, test_size=0.1, random_state=123, stratify=X['FranchiseName'])
+y_test = y[X_test.index]
+print(len(y_test))
+mask = np.ones(y.shape, dtype=bool)
+mask[X_test.index] = False
+y_train = y[mask]
+print(len(y_train))
 
 def standardize(arr):
   """Standardizes a NumPy array."""
