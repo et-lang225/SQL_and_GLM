@@ -91,3 +91,10 @@ coef
 # it looks as thought the LassoCV chose a model with Year Runtime and Budget as predictors along with two components of the FranchiseName included
 # to remove the other franchises from the dataset would significantly truncate the dataset so we will move forward with using the whole FranchiseName column
 
+y_test_resid = y_test - np.mean(y_test)
+TSS = sum((y_test_resid)**2)
+RSS = sum((y_test-y_hat)**2)
+R_sq = 1 - (RSS/TSS)
+1-((1-R_sq)*(len(X_test)-1)/(len(X_test)-5-1)
+# the adjusted coefficient of determination needs more than 5 values
+
