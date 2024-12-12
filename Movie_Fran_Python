@@ -34,12 +34,17 @@ Fran_data = pd.read_sql_query(query, conn)
 
 conn.close()
 
+from sklearn.preprocessing import StandardScaler
 from sklearn import linear_model as lm
 from sklearn import model_selection as ms
-##########forgot to standardize values, standardize values here##########
-X = Fran_data.drop('Lifetime_Gross', axis=1)
+X_sub = Fran_data[['Year', 'Runtime','Budget']]
+scaler = StandardScaler()
+X = scaler.fit_transform(X_sub)
+X = pd.DataFrame(X, columns=X_sub.columns)
+X_dummies = pd.get_dummies(Fran_data[['Rating', 'FranchiseName']])
+X = X.join(X_dummies)
 y = Fran_data[['Lifetime_Gross']]
-X_train, X_test, y_train, y_test = ms.train_test_split(X, y, test_size=0.1, random_state=123, stratify=X['FranchiseName'])
+X_train, X_test, y_train, y_test = ms.train_test_split(X, y, test_size=0.1, random_state=123)
 k = len(X_train)
 lasso_cv = lm.LassoCV(cv=k)
 lasso_cv.fit(X_train, y_train)
