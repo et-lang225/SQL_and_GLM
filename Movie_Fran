@@ -149,3 +149,4 @@ ggplot()+
   labs(x="Budget (millions of dollars)", y="Revenue (millions of dollars)")
 # fascinating results with Jurassic Park claiming the top mean revenue within a given budget
 # However, the MCU claims the largest individual revenue data-point
+# WARNING this may be an overfit because of a lack of final test dataframe for diagnostics, the python code includes cross validation and it is difficult have enough datapoints to train and test the model
