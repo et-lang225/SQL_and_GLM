@@ -80,3 +80,6 @@ coef = pd.DataFrame(fit.coef_)
 coef = coef.T
 coef.columns = X_train.columns
 coef
+# it looks as thought the LassoCV chose a model with Year Runtime and Budget as predictors along with two components of the FranchiseName included
+# to remove the other franchises from the dataset would significantly truncate the dataset so we will move forward with using the whole FranchiseName column
+
