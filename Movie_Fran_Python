@@ -41,11 +41,26 @@ X_sub = Fran_data[['Year', 'Runtime','Budget']]
 scaler = StandardScaler()
 X = scaler.fit_transform(X_sub)
 X = pd.DataFrame(X, columns=X_sub.columns)
-####### This is out of order, need to assign the train and test dataframes then construct the dummy columns and standardize the data so that we can stratify the subsampling by FranchiseName ########
-X_dummies = pd.get_dummies(Fran_data[['Rating', 'FranchiseName']])
-X = X.join(X_dummies)
-y = Fran_data[['Lifetime_Gross']]
-X_train, X_test, y_train, y_test = ms.train_test_split(X, y, test_size=0.1, random_state=123)
-k = len(X_train)
+X_dummies = pd.get_dummies(X_train[['Rating', 'FranchiseName']])
+X_dummies.reset_index(drop=True,inplace=True)
+scaler = StandardScaler()
+X_train_sub = X_train[['Year', 'Runtime', 'Budget']]
+X_train = scaler.fit_transform(X_train_sub)
+X_train = pd.DataFrame(X_train, columns=X_train_sub.columns)
+X_train = pd.concat([X_train,X_dummies], axis=1)
+#just a little test to make sure the df is in order
+X_train[X_train.isna().any(axis=1)]
+
+X_dummies = pd.get_dummies(X_test[['Rating', 'FranchiseName']])
+X_dummies.reset_index(drop=True,inplace=True)
+scaler = StandardScaler()
+X_test_sub = X_test[['Year', 'Runtime', 'Budget']]
+X_test = scaler.fit_transform(X_test_sub)
+X_test = pd.DataFrame(X_test, columns=X_test_sub.columns)
+X_test = pd.concat([X_test,X_dummies], axis=1)
+#just a little test to make sure the df is in order
+X_test[X_test.isna().any(axis=1)]
+
+k = len(X_train)-1
 lasso_cv = lm.LassoCV(cv=k)
 lasso_cv.fit(X_train, y_train)
