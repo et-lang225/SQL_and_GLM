@@ -95,7 +95,7 @@ print('Training Deviance Explained',fit.score(X_train, y_train))
 
 test_yhat = p_lm.predict(X_test)
 print('Test Dataset Coefficient of Variation',np.sqrt(sum((y_test-test_yhat)**2)/len(y_test))/np.mean(y_test))
-# 0.66 coefficient of variation on the predictions of the test data
+# 0.66 normalized root mean square error on the predictions of the test data
 
 # create data to isolate the effect of movie budget on revenue
 scaler = StandardScaler()
