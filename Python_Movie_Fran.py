@@ -1,5 +1,4 @@
 # In this code I use a cross validated Ridge regression of a GLM with a Poisson Distribution
-# I wanted to use a Lasso but Python makes it extremely difficult to use a cross-validated Lasso with a Poisson distribution
 
 import numpy as np
 import pandas as pd
